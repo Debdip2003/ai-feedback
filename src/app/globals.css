@@ -1,3 +1,8 @@
+/*
+  * This file is intended for global styles that apply across the entire application.
+  * For component-specific styles, please use CSS Modules.
+  */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -19,15 +24,32 @@ body {
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
+/* Basic reset to ensure consistent styling */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+ul,
+ol,
+li,
+figure,
+figcaption,
+blockquote,
+dl,
+dd {
   margin: 0;
+  padding: 0;
 }
 
 a {

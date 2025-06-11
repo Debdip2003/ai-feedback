@@ -1,95 +1,172 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState, useRef, ChangeEvent, DragEvent } from "react";
 import styles from "./page.module.css";
 
-export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+interface AnalysisResult {
+  scores: { [key: string]: number };
+  overallFeedback: string;
+  observation: string;
+}
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
+export default function Home() {
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setAudioFile(file);
+      setAudioUrl(URL.createObjectURL(file));
+      setAnalysisResult(null); // Clear previous results
+      setError(null);
+    }
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = event.dataTransfer.files?.[0];
+    if (file && (file.type === "audio/mpeg" || file.type === "audio/wav")) {
+      setAudioFile(file);
+      setAudioUrl(URL.createObjectURL(file));
+      setAnalysisResult(null); // Clear previous results
+      setError(null);
+    } else {
+      setError("Please drop a valid .mp3 or .wav audio file.");
+    }
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleProcessFeedback = async () => {
+    if (!audioFile) {
+      setError("Please upload an audio file first.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setAnalysisResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioFile);
+
+      const response = await fetch("/api/analyze-call", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to analyze audio.");
+      }
+
+      const data: AnalysisResult = await response.json();
+      setAnalysisResult(data);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred during analysis.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 0 && score <= 49) return styles.scoreFail;
+    if (score >= 50 && score <= 79) return styles.scoreMedium;
+    if (score >= 80 && score <= 100) return styles.scorePass;
+    return "";
+  };
+
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <h1>AI Feedback Form</h1>
+        <p>Upload an audio file (.mp3 or .wav) to get AI-powered feedback.</p>
+      </header>
+
+      <main className={styles.mainContent}>
+        <section
+          className={styles.uploadSection}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            type="file"
+            accept=".mp3,.wav"
+            onChange={handleFileChange}
+            ref={fileInputRef}
+            style={{ display: "none" }}
+          />
+          {audioFile ? (
+            <p className={styles.uploadedFileName}>
+              File selected: {audioFile.name}
+            </p>
+          ) : (
+            <p>Drag & Drop your audio file here, or click to select</p>
+          )}
+          <p className={styles.supportedFormats}>(.mp3 or .wav)</p>
+        </section>
+
+        {audioUrl && (
+          <section className={styles.audioPlayerSection}>
+            <h2>Audio Playback</h2>
+            <audio controls src={audioUrl} className={styles.audioPlayer}>
+              Your browser does not support the audio element.
+            </audio>
+          </section>
+        )}
+
+        <button
+          onClick={handleProcessFeedback}
+          className={styles.processButton}
+          disabled={!audioFile || loading}
+        >
+          {loading ? "Processing..." : "Process Feedback"}
+        </button>
+
+        {error && <p className={styles.errorMessage}>{error}</p>}
+
+        {analysisResult && (
+          <section className={styles.resultsSection}>
+            <h2>Analysis Results</h2>
+            <div className={styles.scoresGrid}>
+              {Object.entries(analysisResult.scores).map(([key, value]) => (
+                <div key={key} className={styles.scoreItem}>
+                  <p className={styles.scoreLabel}>
+                    {key
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (str) => str.toUpperCase())}
+                    :
+                  </p>
+                  <p className={`${styles.scoreValue} ${getScoreColor(value)}`}>
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className={styles.feedbackText}>
+              <h3>Overall Feedback:</h3>
+              <p>{analysisResult.overallFeedback}</p>
+            </div>
+            <div className={styles.feedbackText}>
+              <h3>Observation:</h3>
+              <p>{analysisResult.observation}</p>
+            </div>
+          </section>
+        )}
       </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
