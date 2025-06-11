@@ -74,8 +74,12 @@ export default function Home() {
 
       const data: AnalysisResult = await response.json();
       setAnalysisResult(data);
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during analysis.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred during analysis.");
+      }
     } finally {
       setLoading(false);
     }
