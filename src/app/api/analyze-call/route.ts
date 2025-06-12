@@ -233,9 +233,11 @@ export async function POST(req: NextRequest) {
     const mockScores: { [key: string]: number } = {};
     MOCK_CALL_EVALUATION_PARAMETERS.forEach((param) => {
       if (param.inputType === "SCORE") {
-        mockScores[param.key] = Math.floor(Math.random() * 101);
+        // Score can be any number between 0 and the weight
+        mockScores[param.key] = Math.floor(Math.random() * (param.weight + 1));
       } else if (param.inputType === "PASS_FAIL") {
-        mockScores[param.key] = Math.random() > 0.5 ? 100 : 0;
+        // Score should be either 0 or equal to the weight
+        mockScores[param.key] = Math.random() > 0.5 ? param.weight : 0;
       }
     });
 
